@@ -76,21 +76,51 @@ These exercises will reiterate what you learned in the "Expanding the data wrang
   1. Summarize the `garden_harvest` data to find the total harvest weight in pounds for each vegetable and day of week (HINT: use the `wday()` function from `lubridate`). Display the results so that the vegetables are rows but the days of the week are columns.
 
 ```{r}
-
+garden_harvest %>% 
+  mutate(day = wday(date, label = TRUE)) %>% 
+  group_by(vegetable, day) %>% 
+  summarize(tot_harvest = sum(weight)*0.00220462) %>% 
+  pivot_wider(id_cols = c("vegetable", "tot_harvest"),
+              names_from = day,
+              values_from = tot_harvest)
 ```
 
   2. Summarize the `garden_harvest` data to find the total harvest in pound for each vegetable variety and then try adding the plot from the `garden_planting` table. This will not turn out perfectly. What is the problem? How might you fix it?
 
 ```{r}
-
+garden_harvest %>% 
+  group_by(vegetable, variety) %>% 
+  summarize(tot_harvest = sum(weight)*0.00220462) %>% 
+  left_join(garden_planting %>% select(plot, vegetable, variety),
+            by = c("vegetable", "variety"))
+  
 ```
+Response: There are several problems with this join. One is that it is missing several values for plot, which is likely because those vegetables were not planted on purpose that year (for example beet leaves), so they weren't recorded in garden_planting. There is probably a way to replace this NA with something like "perennial". Another problem is that when you planted on vegetable in several different plots, it separates them out as two different rows but shows the same total harvest for both. This could be fixed if you had collected data on which plots you harvested from, or maybe there is a way to combine the plots for each vegetable so it would say something like "beans", "Chinese Red Noodle", "0.78484427lbs", "K and L".
+
 
   3. I would like to understand how much money I "saved" by gardening, for each vegetable type. Describe how I could use the `garden_harvest` and `garden_spending` datasets, along with data from somewhere like [this](https://products.wholefoodsmarket.com/search?sort=relevance&store=10542) to answer this question. You can answer this in words, referencing various join functions. You don't need R code but could provide some if it's helpful.
+  
+Response: In the garden_spending data set, compute the amount of money you spent on seeds for each vegetable by adding a new variable "total_cost".
+garden_spending %>% 
+group_by(vegetable) %>% 
+mutate(total_cost=sum(price_with_tax))
+
+In the garden_harvest data set, compute the total lbs harvested for each vegetable and add a variable with data from the grocery store about the cost of a lb of each vegetable.
+
+Then summarize both data sets to include only the new variables and vegetable and left_join them by vegetable (so as to keep harvest data for things you didn't record planting) to produce a single data set with the variables "vegetable", "total_cost", "total_harvest_lbs", and "grocery_cost_perlb". Add a new column to this data set called "savings" by mutate(savings=((total_harvest_lbs*grocery_cost_perlb)-total_cost)).
 
   4. Subset the data to tomatoes. Reorder the tomato varieties from smallest to largest first harvest date. Create a barplot of total harvest in pounds for each variety, in the new order.
 
 ```{r}
-
+garden_harvest %>% 
+  filter(vegetable == "tomatoes") %>% 
+  mutate(variety = fct_reorder(variety, date, min, .desc = TRUE)) %>% 
+  group_by(variety) %>% 
+  summarize(tot_harvest_lbs = sum(weight)*0.00220462, date) %>% 
+  ggplot(aes(x = tot_harvest_lbs, y = variety)) +
+  geom_col() +
+  labs(title = "Total Harvest of Tomato Varieties in Order of First Harvest", x = "Total Harvest (lbs)", y = "Later First Harvest <---------------------> Earliest First Harvest")
+  
 ```
 
   5. In the `garden_harvest` data, create two new variables: one that makes the varieties lowercase and another that finds the length of the variety name. Arrange the data by vegetable and length of variety name (smallest to largest), with one row for each vegetable variety. HINT: use `str_to_lower()`, `str_length()`, and `distinct()`.
@@ -231,6 +261,5 @@ This problem uses the data from the Tidy Tuesday competition this week, `kids`. 
 
   21. In this exercise, you are going to try to replicate the graph below, created by Georgios Karamanis. I'm sure you can find the exact code on GitHub somewhere, but **DON'T DO THAT!** You will only be graded for putting an effort into this problem. So, give it a try and see how far you can get without doing too much googling. HINT: use `facet_geo()`. The graphic won't load below since it came from a location on my computer. So, you'll have to reference the original html on the moodle page to see it.
   
-![](kids_data_karamanis.jpeg)
 
 **DID YOU REMEMBER TO UNCOMMENT THE OPTIONS AT THE TOP?**
