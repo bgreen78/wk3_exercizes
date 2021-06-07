@@ -12,7 +12,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-#knitr::opts_chunk$set(echo = TRUE, error=TRUE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE, error=TRUE, message=FALSE, warning=FALSE)
 ```
 
 ```{r libraries}
@@ -95,19 +95,12 @@ garden_harvest %>%
             by = c("vegetable", "variety"))
   
 ```
-Response: There are several problems with this join. One is that it is missing several values for plot, which is likely because those vegetables were not planted on purpose that year (for example beet leaves), so they weren't recorded in garden_planting. There is probably a way to replace this NA with something like "perennial". Another problem is that when you planted on vegetable in several different plots, it separates them out as two different rows but shows the same total harvest for both. This could be fixed if you had collected data on which plots you harvested from, or maybe there is a way to combine the plots for each vegetable so it would say something like "beans", "Chinese Red Noodle", "0.78484427lbs", "K and L".
+**Response**: There are two problems with this join. One is that it is missing several values for plot, which is likely because those vegetables were not planted on purpose that year (for example beet leaves), so they weren't recorded in garden_planting. To fix this you could replace this NA with something like "previously planted". Another problem is that some varieties are separated into several rows when you planted on vegetable in different plots. This could be fixed if you had collected data on which plots you harvested from. Now that you're working with imperfect data, you have to choose what to eliminate. Perhaps adding code that only keeps the first plot that a variety is planted in.
 
 
   3. I would like to understand how much money I "saved" by gardening, for each vegetable type. Describe how I could use the `garden_harvest` and `garden_spending` datasets, along with data from somewhere like [this](https://products.wholefoodsmarket.com/search?sort=relevance&store=10542) to answer this question. You can answer this in words, referencing various join functions. You don't need R code but could provide some if it's helpful.
   
-Response: In the garden_spending data set, compute the amount of money you spent on seeds for each vegetable by adding a new variable "total_cost".
-garden_spending %>% 
-group_by(vegetable) %>% 
-mutate(total_cost=sum(price_with_tax))
-
-In the garden_harvest data set, compute the total lbs harvested for each vegetable and add a variable with data from the grocery store about the cost of a lb of each vegetable.
-
-Then summarize both data sets to include only the new variables and vegetable and left_join them by vegetable (so as to keep harvest data for things you didn't record planting) to produce a single data set with the variables "vegetable", "total_cost", "total_harvest_lbs", and "grocery_cost_perlb". Add a new column to this data set called "savings" by mutate(savings=((total_harvest_lbs*grocery_cost_perlb)-total_cost)).
+**Response**: In the garden_spending data set, compute the amount of money you spent on seeds for each vegetable by adding a new variable "total_cost". In the garden_harvest data set, compute the total lbs harvested for each vegetable and add a variable with data from the grocery store about the cost of a lb of each vegetable. Then summarize both data sets to include only the new variables and vegetable and left_join them by vegetable (so as to keep harvest data for things you didn't record planting) to produce a single data set with the variables "vegetable", "total_cost", "total_harvest_lbs", and "grocery_cost_perlb". Add a new column to this data set called "savings" by mutate(savings=((total_harvest_lbs*grocery_cost_perlb)-total_cost)).
 
   4. Subset the data to tomatoes. Reorder the tomato varieties from smallest to largest first harvest date. Create a barplot of total harvest in pounds for each variety, in the new order.
 
@@ -119,7 +112,9 @@ garden_harvest %>%
   summarize(tot_harvest_lbs = sum(weight)*0.00220462, date) %>% 
   ggplot(aes(x = tot_harvest_lbs, y = variety)) +
   geom_col() +
-  labs(title = "Total Harvest of Tomato Varieties in Order of First Harvest", x = "Total Harvest (lbs)", y = "Later First Harvest <---------------------> Earliest First Harvest")
+  labs(title = "Total Harvest of Tomato Varieties in Order of First Harvest",
+       x = "Total Harvest (lbs)",
+       y = "Later First Harvest <---------------------> Earliest First Harvest")
   
 ```
 
@@ -139,9 +134,9 @@ garden_harvest %>%
 
 ```{r}
 garden_harvest %>% 
-  group_by(vegetable, variety) %>% 
-  summarize(vegetable, variety) %>% 
+  select(vegetable, variety) %>% 
   distinct() %>% 
+  arrange(vegetable, variety) %>% 
   mutate(has_aer = str_detect(variety, "er|ar")) %>% 
   filter(has_aer == TRUE)
 ```
@@ -169,7 +164,7 @@ Here is the code to read in the data. We do this a little differently than usual
 
 ```{r cache=TRUE}
 data_site <- 
-  "https://www.macalester.edu/~dshuman1/data/112/2014-Q4-Trips-History-Data-Small.rds" 
+  "https://www.macalester.edu/~dshuman1/data/112/2014-Q4-Trips-History-Data.rds" 
 Trips <- readRDS(gzcon(url(data_site)))
 Stations<-read_csv("http://www.macalester.edu/~dshuman1/data/112/DC-Stations.csv")
 ```
@@ -186,46 +181,60 @@ It's natural to expect that bikes are rented more at some times of day, some day
 Trips %>% 
   ggplot(aes(x = sdate)) +
   geom_density() +
-  labs(title = "Trend of Number of Bike Rentals in DC from October-December 2014", x= "", y="Density")
+  labs(title = "Trend of Bike Rentals in DC, October to December 2014",
+       x= "2014",
+       y="")
 ```
+  
+**Description:** This density plot shows that bike renting overall was on a downward trend from October to January (maybe because of the increasingly cold weather), but there were lots of ups and downs throughout the period. There were particular lows right at the beginning of October, in late November, and late December, with the highest ridership happening in October.
   
   8. A density plot of the events versus time of day.  You can use `mutate()` with `lubridate`'s  `hour()` and `minute()` functions to extract the hour of the day and minute within the hour from `sdate`. Hint: A minute is 1/60 of an hour, so create a variable where 3:30 is 3.5 and 3:45 is 3.75.
   
 ```{r}
 Trips %>% 
-  mutate(time= hour(sdate)+(minute(sdate)*1/60)) %>% 
-  ggplot(aes(x=time)) +
+  mutate(time = hour(sdate)+(minute(sdate)*1/60)) %>% 
+  ggplot(aes(x = time)) +
   geom_density() +
-  labs(title = "Trend of Start Times for Bike Rentals in DC", x = "Time of Day (24 hour clock)", y= "Density")
+  labs(title = "Trend of Start Times for Bike Rentals in DC",
+       x = "Time of Day (24 hour clock)",
+       y= "")
 ```
+  
+  **Description**: This graph shows the distribution of start times for bike rentals throughout the day is highest in the "waking hours", around 8am-8pm, with particular spikes around 8am and 6pm (perhaps people riding to and from work) and a small bump at both 1am and 1pm. The time with the lowest bike rentals is around 4am.
   
   9. A bar graph of the events versus day of the week. Put day on the y-axis.
   
 ```{r}
 Trips %>% 
-  mutate(day=wday(sdate, label=TRUE)) %>% 
+  mutate(day = wday(sdate, label = TRUE)) %>% 
   group_by(day) %>% 
-  summarize(events=n()) %>% 
+  summarize(events = n()) %>% 
   ggplot(aes(x = events, y = fct_rev(day))) +
   geom_col() +
-  labs(title = "Bike rentals in DC by Days of the Week", x = "Rentals", y = "")
+  labs(title = "Bike rentals in DC by Day of the Week",
+       x = "Rentals",
+       y = "")
 
 ```
+  
+  **Description**: This bar graph of the number of bike rentals on each day of the week shows that ridership is highest during the weekdays, close to 100,000 rentals, while the ridership on Saturday and Sunday are around 85,000. The day with the highest ridership is Thursday, and the lowest ridership is on Sunday.
   
   10. Facet your graph from exercise 8. by day of the week. Is there a pattern?
   
 ```{r}
 Trips %>% 
-  mutate(time= hour(sdate)+(minute(sdate)*1/60),
-         day=wday(sdate, label=TRUE)) %>% 
-  ggplot(aes(x=time)) +
+  mutate(time = hour(sdate)+(minute(sdate)*1/60),
+         day = wday(sdate, label = TRUE)) %>% 
+  ggplot(aes(x = time)) +
   geom_density() +
   facet_wrap(vars(day)) +
-  labs(title = "Trend of Start Times for Bike Rentals in DC by Day of the Week", x = "Time of Day (24 hour clock)", y= "")
+  labs(title = "Trend of Start Times for Bike Rentals in DC by Day of the Week",
+       x = "Time of Day (24 hour clock)",
+       y= "")
 ```
   
-Description:
-Faceting the start time density graph for bike rental trips shows that weekends have a very different distribution of start time for bike trips, presumably because more people don't have to work and can go biking in the middle of the day. There is also a bump in the wee hours on weekends, maybe from people choosing to rent a bike to leave a bar or party. On weekdays, there are spikes in the morning and evening around 8am and 6pm, probably from people going to and from work. 
+**Description**:
+Faceting the start time density graph for bike rental trips shows two general patterns: one for weekends and one for weekdays. On the weekends, bike rentals start mostly in the middle of the day between 9am and 5pm with a bump around 1am, maybe from people choosing to rent a bike to leave a bar or party. On weekdays, there are spikes in the morning and evening around 8am and 6pm, probably from people going to and from work. 
   
 The variable `client` describes whether the renter is a regular user (level `Registered`) or has not joined the bike-rental organization (`Causal`). The next set of exercises investigate whether these two different categories of users show different rental behavior and how `client` interacts with the patterns you found in the previous exercises. 
 
@@ -233,38 +242,44 @@ The variable `client` describes whether the renter is a regular user (level `Reg
   
 ```{r}
 Trips %>% 
-  mutate(time= hour(sdate)+(minute(sdate)*1/60),
-         day=wday(sdate, label=TRUE)) %>% 
-  ggplot(aes(x=time, fill=client)) +
-  geom_density(alpha = .5, color=NA) +
+  mutate(time = hour(sdate)+(minute(sdate)*1/60),
+         day = wday(sdate, label = TRUE)) %>% 
+  ggplot(aes(x = time, fill = client)) +
+  geom_density(alpha = .5, color = NA) +
   facet_wrap(vars(day)) +
-  labs(title = "Trend of Start Times for Bike Rentals in DC by Day of the Week", x = "Time of Day (24 hour clock)", y= "")
+  labs(title = "Trend of Start Times for Bike Rentals in DC by Day of the Week",
+       x = "Time of Day (24 hour clock)",
+       y= "")
 ```
 
   12. Change the previous graph by adding the argument `position = position_stack()` to `geom_density()`. In your opinion, is this better or worse in terms of telling a story? What are the advantages/disadvantages of each?
   
 ```{r}
 Trips %>% 
-  mutate(time= hour(sdate)+(minute(sdate)*1/60),
-         day=wday(sdate, label=TRUE)) %>% 
-  ggplot(aes(x=time, fill=client)) +
-  geom_density(alpha = .5, color=NA, position = position_stack()) +
+  mutate(time = hour(sdate)+(minute(sdate)*1/60),
+         day = wday(sdate, label = TRUE)) %>% 
+  ggplot(aes(x = time, fill = client)) +
+  geom_density(alpha = .5, color = NA, position = position_stack()) +
   facet_wrap(vars(day)) +
-  labs(title = "Trend of Start Times for Bike Rentals in DC by Day of the Week", x = "Time of Day (24 hour clock)", y= "")
+  labs(title = "Trend of Start Times for Bike Rentals in DC by Day of the Week",
+       x = "Time of Day (24 hour clock)",
+       y= "")
 ```
   
-  Description: I think that this graph with the stacked registered/casual densities is actually worse at telling a good story about the difference in use between registered and casual bike renters. In the previous graph you can clearly see that the rentals by registered users fall in clear spikes before and after work on weekdays and peaks 3pm on weekends while the rentals by casual users peaks at 3pm-ish every day of the week and is much more concentrated to the middle of the day throughout the week compared to registered users. The stacked graph loses the character of whatever data set is on top, in this case the casual users, making it hard to tell where their use really peaked each day.
+  **Description**: I think that this graph with the stacked client densities is actually worse at telling a good story than the overlapping one about the difference in use between registered and casual bike renters. In the previous graph you can clearly see that the rentals by registered users happen in spikes before and after work on weekdays and peaks 3pm on weekends while the rentals by casual users peaks at 3pm-ish every day of the week and is much more concentrated to the middle of the day throughout the week compared to registered users. The stacked graph loses the character of whatever data set is on top, in this case the casual users, making it hard to tell where their use really peaked each day. However, the stacking graph allows you to see the overall trends of bike rentals combining causal and registered riders, which is hard to see in the overlapping graph.
   
   13. In this graph, go back to using the regular density plot (without `position = position_stack()`). Add a new variable to the dataset called `weekend` which will be "weekend" if the day is Saturday or Sunday and  "weekday" otherwise (HINT: use the `ifelse()` function and the `wday()` function from `lubridate`). Then, update the graph from the previous problem by faceting on the new `weekend` variable. 
   
 ```{r}
 Trips %>% 
-  mutate(time= hour(sdate)+(minute(sdate)*1/60),
-         weekend = ifelse(wday(sdate, label=TRUE)== c("Sat", "Sun"), "weekend", "weekday")) %>% 
-  ggplot(aes(x=time, fill=client)) +
-  geom_density(alpha = .5, color=NA) +
+  mutate(time = hour(sdate)+(minute(sdate)*1/60),
+         weekend = ifelse(wday(sdate, label=TRUE) == c("Sat", "Sun"), "weekend", "weekday")) %>% 
+  ggplot(aes(x=time, fill = client)) +
+  geom_density(alpha = .5, color = NA) +
   facet_wrap(vars(weekend)) +
-  labs(title = "Trend of Start Times for Bike Rentals in DC on Weekends vs Weekdays", x = "Time of Day (24 hour clock)", y= "Density")
+  labs(title = "Trend of Start Times for Bike Rentals in DC on Weekends vs Weekdays",
+       x = "Time of Day (24 hour clock)",
+       y= "")
  
 ```
   
@@ -272,51 +287,112 @@ Trips %>%
   
 ```{r}
 Trips %>% 
-  mutate(time= hour(sdate)+(minute(sdate)*1/60),
-         weekend = ifelse(wday(sdate, label=TRUE)== c("Sat", "Sun"), "weekend", "weekday")) %>% 
-  ggplot(aes(x=time, fill=weekend)) +
-  geom_density(alpha = .5, color=NA) +
+  mutate(time = hour(sdate)+(minute(sdate)*1/60),
+         weekend = ifelse(wday(sdate, label = TRUE) == c("Sat", "Sun"), "weekend", "weekday")) %>% 
+  ggplot(aes(x = time, fill = weekend)) +
+  geom_density(alpha = .5, color = NA) +
   facet_wrap(vars(client)) +
-  labs(title = "Trend of Start Times for Bike Rentals in DC on Weekends vs Weekdays", x = "Time of Day (24 hour clock)", y= "Density")
+  labs(title = "Trend of Start Times for Bike Rentals in DC on Weekends vs Weekdays",
+       x = "Time of Day (24 hour clock)",
+       y= "",
+       fill= "")
 ```
 
-Description: FINISH
+**Description**: This graph that facets by client allows you to see more clearly that casual riders have mostly the same riding start time pattern on weekends and weekdays, which is harder to see in the previous graph. The other graph shows a better comparison of the riding habits of casual and registered riders, which is more difficult to see in this graph since they are separated. Overall however, I think both graphs communicate the same information in easy to understand ways, and I don't find one to be significantly better than the other. 
   
 ### Spatial patterns
 
   15. Use the latitude and longitude variables in `Stations` to make a visualization of the total number of departures from each station in the `Trips` data. Use either color or size to show the variation in number of departures. We will improve this plot next week when we learn about maps!
   
 ```{r}
-
+Stations %>% 
+  summarize(name, lat, long) %>% 
+  left_join(Trips %>% summarize(sdate, sstation),
+            by = c("name" = "sstation")) %>% 
+  group_by(name) %>% 
+  summarize(departures = n(), lat, long) %>% 
+  distinct() %>% 
+  ggplot(aes(x = long, y = lat, color = departures)) +
+  geom_point() +
+  labs(title = "Popularity of Departure Stations for Bike Rentals in DC by Location",
+       x = "Longitude",
+       y = "Latitude")
 ```
   
   16. Only 14.4% of the trips in our data are carried out by casual users. Create a plot that shows which area(s) have stations with a much higher percentage of departures by casual users. What patterns do you notice? (Again, we'll improve this next week when we learn about maps).
   
 ```{r}
-
+Stations %>% 
+  summarize(name, lat, long) %>% 
+  left_join(Trips %>% summarize(sdate, sstation, client),
+            by = c("name" = "sstation")) %>% 
+  group_by(name) %>% 
+  summarize(perc_casual = sum(ifelse(client == "Casual", 1, 0))/n()*100,
+            lat, long) %>%
+  distinct() %>% 
+  ggplot(aes(x = long, y = lat, color = perc_casual)) +
+  geom_point() +
+  scale_color_gradient(low="lightgrey", high= "firebrick1") +
+  labs(title = "Percentage of Casual Users at Departure Stations for Bike Rentals in DC",
+       x = "Longitude",
+       y = "Latitude",
+       color = "Percent of Casual Renters")
+  
 ```
   
+  **Description**: In this graph of the percentage of casual bike renters you can see that some stations have much higher casual usership, and they tend to be in a clump in the middle, with that percentage generally decreasing the further away from this area that you get. This might be a downtown area of DC. There is also an area in the Northwest that has a somewhat higher percent of casual users. 
+
 ### Spatiotemporal patterns
 
   17. Make a table with the ten station-date combinations (e.g., 14th & V St., 2014-10-14) with the highest number of departures, sorted from most departures to fewest. Save this to a new dataset and print out the dataset. Hint: `as_date(sdate)` converts `sdate` from date-time format to date format. 
   
 ```{r}
+top_ten_date_stat<-Trips %>% 
+  mutate(date = as_date(sdate)) %>% 
+  group_by(sstation, date) %>% 
+  summarize(departures = n()) %>% 
+  arrange(desc(departures)) %>% 
+  ungroup() %>% 
+  slice(1:10)
 
+print(top_ten_date_stat)
 ```
   
   18. Use a join operation to make a table with only those trips whose departures match those top ten station-date combinations from the previous part.
   
 ```{r}
-
+Trips %>% 
+  mutate(date = as_date(sdate)) %>% 
+  right_join(top_ten_date_stat,
+             by = c("sstation", "date"))
 ```
   
   19. Build on the code from the previous problem (ie. copy that code below and then %>% into the next step.) and group the trips by client type and day of the week (use the name, not the number). Find the proportion of trips by day within each client type (ie. the proportions for all 7 days within each client type add up to 1). Display your results so day of week is a column and there is a column for each client type. Interpret your results.
+  
+```{r}
+Trips %>% 
+  mutate(date = as_date(sdate)) %>% 
+  right_join(top_ten_date_stat,
+             by = c("sstation", "date")) %>% 
+  mutate(day = wday(date, label = TRUE)) %>% 
+  group_by(client, day) %>% 
+  summarize(trips_per_day = n()) %>% 
+  mutate(perc_trips = trips_per_day/sum(trips_per_day)) %>% 
+  pivot_wider(id_cols = c(day), 
+               names_from = client,
+               values_from = perc_trips)
+```
+
+**Interpretation**: This table showing the percentage of bike rentals by casual and registered users across the days of the week on the top ten ridership days is hyper specific: it would really only be useful to answer a specific question and is not useful for drawing general conclusions about the usage of this bike rental program. It shows that (given these narrow conditions), casual riders rented bikes more on the weekend- particularly on Saturday which was over 50%, while registered bikers rented less on the weekends and more consistantly throughout the weekdays. There are a few strange things about this table, including that Friday doesn't appear because none of the top ten ridership days were on a Friday, and also that Thursday has a high percentage at 33% for registered users (maybe there was some kind of special event on a Thursday at one point?). 
+
 
 **DID YOU REMEMBER TO GO BACK AND CHANGE THIS SET OF EXERCISES TO THE LARGER DATASET? IF NOT, DO THAT NOW.**
 
 ## GitHub link
 
   20. Below, provide a link to your GitHub page with this set of Weekly Exercises. Specifically, if the name of the file is 03_exercises.Rmd, provide a link to the 03_exercises.md file, which is the one that will be most readable on GitHub.
+  
+[Bea's 03 exersizes .md](https://github.com/bgreen78/wk3_exercizes/blob/main/BeaGreen_03_exercises.md)
 
 ## Challenge problem! 
 
